@@ -1,34 +1,44 @@
 using static System.Buffers.Binary.BinaryPrimitives;
-
-// Parse arguments
-var (path, command) = args.Length switch
+namespace codecrafters_sqlite.src
 {
-    0 => throw new InvalidOperationException("Missing <database path> and <command>"),
-    1 => throw new InvalidOperationException("Missing <command>"),
-    _ => (args[0], args[1])
-};
+    class Program
+    {
+        public static int Main(string[] args)
+        {
+            // Parse arguments
+            var (path, command) = args.Length switch
+            {
+                0 => throw new InvalidOperationException("Missing <database path> and <command>"),
+                1 => throw new InvalidOperationException("Missing <command>"),
+                _ => (args[0], args[1])
+            };
 
-var databaseFile = File.OpenRead(path);
+            MetaData metaData = new MetaData(path);
+
+            switch (command)
+            {
+                case ".dbinfo":
+                    // You can use print statements as follows for debugging, they'll be visible when running tests.
+                    Console.Error.WriteLine("Logs from your program will appear here!");
+                    Console.WriteLine($"database page size: {metaData.PageSize}");
+                    Console.WriteLine($"number of tables: {metaData.TableCount}");
+                    break;
+                case ".tables":
+
+                    break;
+                default:
+                    throw new InvalidOperationException($"Invalid command: {command}");
+            }
+            return 0;
+        }
+
+    }
+}
+
+
+
+
+
+
 
 // Parse command and act accordingly
-if (command == ".dbinfo")
-{
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
-    Console.Error.WriteLine("Logs from your program will appear here!");
-    
-    databaseFile.Seek(16, SeekOrigin.Begin); // Skip the first 16 bytes
-    byte[] pageSizeBytes = new byte[2];
-    databaseFile.Read(pageSizeBytes, 0, 2);
-    var pageSize = ReadUInt16BigEndian(pageSizeBytes);
-    Console.WriteLine($"database page size: {pageSize}");
-
-    databaseFile.Seek(103, SeekOrigin.Begin);
-    byte[] cellCountBytes = new byte[2];
-    databaseFile.Read(cellCountBytes, 0, 2);
-    var tableCount = ReadUInt16BigEndian(cellCountBytes);
-    Console.WriteLine($"number of tables: {tableCount}");
-}
-else
-{
-    throw new InvalidOperationException($"Invalid command: {command}");
-}
