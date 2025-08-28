@@ -31,15 +31,8 @@ namespace codecrafters_sqlite.src
                 Console.Error.WriteLine(ex.Message);
             }
 
-            byte[] buffer = new byte[2]; // most of the data chunks are 2 bytes long
-
-            databaseFile.Seek(_fileHeaderOffest, SeekOrigin.Begin);
-            databaseFile.Read(buffer, 0, 2);
-            _pageSize = ReadUInt16BigEndian(buffer);
-
-            databaseFile.Seek(_firstPageOffset + 3, SeekOrigin.Begin);
-            databaseFile.Read(buffer, 0, 2);
-            TableCount = ReadUInt16BigEndian(buffer);
+            _pageSize = ReadTwoBytes(_fileHeaderOffest);
+            TableCount = ReadTwoBytes(_firstPageOffset + 3);
 
             cellPtrArray = new int[TableCount];
             int arrayStartOffset = _firstPageOffset + _pageHeaderOffset;
@@ -47,9 +40,7 @@ namespace codecrafters_sqlite.src
             for (int i = 0; i < TableCount; i++)
             {
                 arrayIndexOffset = i * 2; // 2 bytes per array element
-                databaseFile.Seek(arrayStartOffset + arrayIndexOffset, SeekOrigin.Begin);
-                databaseFile.Read(buffer, 0, 2);
-                cellPtrArray[i] = ReadUInt16BigEndian(buffer);
+                cellPtrArray[i] = ReadTwoBytes(arrayIndexOffset + arrayStartOffset);
             }            
         }
         internal int TableCount
@@ -60,6 +51,14 @@ namespace codecrafters_sqlite.src
         internal int PageSize
         {
             get { return _pageSize; }
+        }
+
+        private int ReadTwoBytes(int offset)
+        {
+            byte[] buffer = new byte[2];
+            databaseFile.Seek(offset, SeekOrigin.Begin);
+            databaseFile.Read(buffer, 0, 2);
+            return ReadUInt16BigEndian(buffer);
         }
     }
 }
