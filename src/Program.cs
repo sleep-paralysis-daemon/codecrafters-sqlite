@@ -21,6 +21,12 @@ if (command == ".dbinfo")
     databaseFile.Read(pageSizeBytes, 0, 2);
     var pageSize = ReadUInt16BigEndian(pageSizeBytes);
     Console.WriteLine($"database page size: {pageSize}");
+
+    databaseFile.Seek(103, SeekOrigin.Begin);
+    byte[] cellCountBytes = new byte[2];
+    databaseFile.Read(cellCountBytes, 0, 2);
+    var tableCount = ReadUInt16BigEndian(cellCountBytes);
+    Console.WriteLine($"number of tables: {tableCount}");
 }
 else
 {
