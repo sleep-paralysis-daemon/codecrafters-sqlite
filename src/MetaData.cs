@@ -42,7 +42,7 @@ namespace codecrafters_sqlite.src
             {
                 arrayIndexOffset = i * 2; // 2 bytes per array element
                 cellPtrArray[i] = ReadTwoBytes(arrayIndexOffset + arrayStartOffset);
-            }            
+            }
         }
         internal int TableCount
         {
@@ -63,68 +63,46 @@ namespace codecrafters_sqlite.src
         }
 
         /// <summary>
-        /// Slice off the VarInt from the starting offset
-        /// VarInt is an unsigned integer 1-9 bytes long
+        /// Slice VarInt (1-9 bytes) from starting offset
         /// </summary>
-        /// <param name="varIntOffset">
-        /// Starting offset from file's beginning
-        /// </param>
-        /// <returns>
-        /// A tuple with VarInt and next byte offset
-        /// </returns>
+        /// <param name="varIntOffset"> Starting offset from file's beginning </param>
+        /// <returns> A tuple with VarInt and next byte offset </returns>
         private (byte[], int) SliceOffVarInt(int varIntOffset)
         {
-            int byteCount = 0;
-            byte[] buffer = new byte[1];
+            int byteCount = 1;
+            byte[] buffer = new byte[8];
             while (true)
             {
-                databaseFile.Seek(varIntOffset + byteCount, SeekOrigin.Begin);
+                databaseFile.Seek(varIntOffset + byteCount - 1, SeekOrigin.Begin);
                 databaseFile.Read(buffer, 0, 1);
                 byteCount++;
                 if (buffer[0] <= 0x7F) // bytes 0111_1111 and lower: most significant bit = 0 means there's no more bytes in VarInt
                     break;
             }
-            buffer = new byte[byteCount + 1];
             databaseFile.Seek(varIntOffset, SeekOrigin.Begin);
-            databaseFile.Read(buffer, 0, byteCount + 1);
+            databaseFile.Read(buffer, 0, byteCount);
+            int nextByteOffset = varIntOffset + byteCount;
+            return (buffer, nextByteOffset);
         }
 
-        private ulong ConvertVarInt(int offset)
+
+        private ulong ConvertVarInt(byte[] bytes)
         {
             byte[] buffer = new byte[1];
-            BitArray bits;
-            Stack<bool> reconstructedInt64 = new Stack<bool>();
-            while (true)
+            BitArray bits = new BitArray(bytes);
+            Stack<bool> VarIntBits = new Stack<bool>();
+            for (int i = 0; i < bits.Count; i++)
             {
-                databaseFile.Seek(offset, SeekOrigin.Begin);
-                offset += 1;
-                databaseFile.Read(buffer, 0, 1);
-                bits = new BitArray(buffer);
-                for (int i = 1; i < bits.Count; i++)
+                if (i % 8 != 0) // transfer all bit except first bits of every byte
                 {
-                    reconstructedInt64.Push(bits[i]);
-                }
-                if (bits[0] == false) break;    // if most significant bit of the byte is 0, then there's no more bytes in varint
-            }
-            bool[] bitBuffer = new bool[8];
-            int bitBufferIndex = 0;
-            Stack<byte> resultBytes = new Stack<byte>();
-            foreach (bool bit in reconstructedInt64)
-            {
-                bitBuffer[bitBufferIndex] = bit;
-                bitBufferIndex++;
-                if (bitBufferIndex == 8)
-                {
-                    Array.Reverse(bitBuffer);
-                    resultBytes.Push(ConvertBitsToByte(bitBuffer));
-                    bitBufferIndex = 0;
-                    bitBuffer = new bool[8];
+                    VarIntBits.Push(bits[i]);
                 }
             }
-            if (bitBufferIndex != 0)
+            Stack<byte> cleanedBytes = new Stack<byte>();
+            Stack<bool> cleanBits = new Stack<bool>();
+            while (VarIntBits.Count > 0)
             {
-                Array.Reverse(bitBuffer);
-                resultBytes.Push(ConvertBitsToByte(bitBuffer));
+                c
             }
             ReadOnlySpan<byte> result = resultBytes.ToArray();
             return ReadUInt64BigEndian(result);
