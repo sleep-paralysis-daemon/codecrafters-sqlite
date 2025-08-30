@@ -12,14 +12,14 @@ namespace codecrafters_sqlite.src
 {
     public class MetaData
     {
-        private const int _fileHeaderOffest = 16;
-        private const int _firstPageOffset = 100;
-        private const int _pageHeaderOffset = 8;
+        internal const int magicStringOffest = 16;
+        internal const int fileHeaderOffset = 100;
+        internal const int pageHeaderOffset = 8;
 
         private readonly string _path;
         private readonly int _pageSize;
         private int _tableCount;
-        private int[] cellPtrArray;
+        internal int[] cellPtrArray;
         internal FileStream databaseFile;
 
         internal MetaData(string path)
@@ -34,11 +34,11 @@ namespace codecrafters_sqlite.src
                 Console.Error.WriteLine(ex.Message);
             }
 
-            _pageSize = ReadTwoBytes(_fileHeaderOffest);
-            TableCount = ReadTwoBytes(_firstPageOffset + 3);
+            _pageSize = ReadTwoBytes(magicStringOffest);
+            TableCount = ReadTwoBytes(fileHeaderOffset + 3);
 
             cellPtrArray = new int[TableCount];
-            int arrayStartOffset = _firstPageOffset + _pageHeaderOffset;
+            int arrayStartOffset = fileHeaderOffset + pageHeaderOffset;
             int arrayIndexOffset = 0;
             for (int i = 0; i < TableCount; i++)
             {
@@ -69,58 +69,63 @@ namespace codecrafters_sqlite.src
         /// </summary>
         /// <param name="varIntOffset"> Starting offset from file's beginning </param>
         /// <returns> A tuple with VarInt and next byte offset </returns>
-        internal (byte[], int) SliceOffVarInt(int varIntOffset)
+        internal (ulong, int) SliceOffVarInt(int varIntOffset)
         {
-            int byteCount = 1;
-            byte[] buffer = new byte[8];
+            int byteCount = 0;
+            byte[] buffer = new byte[1];
             while (true)
             {
-                databaseFile.Seek(varIntOffset + byteCount - 1, SeekOrigin.Begin);
+                databaseFile.Seek(varIntOffset + byteCount, SeekOrigin.Begin);
                 databaseFile.Read(buffer, 0, 1);
                 byteCount++;
                 if (buffer[0] <= 0x7F || byteCount == 9) // bytes 0111_1111 and lower: most significant bit = 0 means there's no more bytes in VarInt.
                     break;                              // max number of VarInt bytes is 9
             }
+            byte[] output = new byte[byteCount];
             databaseFile.Seek(varIntOffset, SeekOrigin.Begin);
             databaseFile.Read(buffer, 0, byteCount);
+            ulong result = ConvertVarInt(buffer);
             int nextByteOffset = varIntOffset + byteCount;
-            return (buffer, nextByteOffset);
+            return (result, nextByteOffset);
         }
 
 
         internal ulong ConvertVarInt(byte[] bytes)
         {
-            byte[] buffer = new byte[1];
-            BitArray bits = new BitArray(bytes);
-            Stack<bool> VarIntBits = new Stack<bool>();
-            for (int i = 0; i < bits.Count; i++)
+            Stack<bool> strippedBits = new();
+            int processedBytes = 0;
+            foreach(byte currentByte in bytes)
             {
-                if (i % 8 != 0) // transfer alls bit except first bits of every byte
+                bool[] bools = ConvertByteToBits(currentByte);
+                processedBytes++;
+                for (int i = 0; i < bools.Length; i++)
                 {
-                    VarIntBits.Push(bits[i]);
+                    if (i == 0 && processedBytes < 9) continue;  // skip most significant bit for all but 9th byte
+                    else strippedBits.Push(bools[i]);
                 }
             }
-            Stack<byte> cleanBytes = new Stack<byte>();
-            Stack<bool> cleanBits = new Stack<bool>();
-            while (VarIntBits.Count > 0)
+            Stack<bool> reassembledByte = new();
+            Stack<byte> resultBytes = new();
+            while (strippedBits.Count > 0)
             {
-                cleanBits.Push(VarIntBits.Pop());
-                if (cleanBits.Count == 8)
+                reassembledByte.Push(strippedBits.Pop());
+                if (reassembledByte.Count == 8)
                 {
-                    cleanBytes.Push(ConvertBitsToByte(cleanBits.ToArray()));
-                    cleanBits.Clear();
+                    resultBytes.Push(ConvertBitsToByte(reassembledByte.ToArray()));
+                    reassembledByte.Clear();
                 }
             }
-            if (cleanBits.Count > 0)
+            if (reassembledByte.Count > 0)
             {
-                while (cleanBits.Count < 8) cleanBits.Push(false);
-                cleanBytes.Push(ConvertBitsToByte(cleanBits.ToArray()));
+                while (reassembledByte.Count < 8) 
+                    reassembledByte.Push(false);
+                resultBytes.Push(ConvertBitsToByte(reassembledByte.ToArray()));
             }
-            while (cleanBytes.Count < 8)
+            while (resultBytes.Count < 8)
             {
-                cleanBytes.Push((byte)0);
+                resultBytes.Push(0x00);
             }
-            ReadOnlySpan<byte> result = cleanBytes.ToArray();
+            ReadOnlySpan<byte> result = resultBytes.ToArray();
             return ReadUInt64BigEndian(result);
         }
 
@@ -129,19 +134,44 @@ namespace codecrafters_sqlite.src
         /// </summary>
         /// <param name="bits"></param>
         /// <returns></returns>
+        
+        private bool[] ConvertByteToBits(byte input)
+        {
+            bool[] output = new bool[8];
+            byte mask;
+            for (int i = 0; i < 8; i++ )
+            {
+                mask = 0b_0000_0001;
+                mask = (byte)(mask << (7 - i));
+                output[i] = ((input & mask) != 0);
+            }
+            return output;
+        }
         private byte ConvertBitsToByte(bool[] bits)
         {
-            //if (bits.Length != 8) throw new ArgumentOutOfRangeException("Need exactly 8 bits for a byte");
+            if (bits.Length != 8) throw new ArgumentOutOfRangeException("Need exactly 8 bits for a byte");
             byte result = 0;
             for (int i = 0; i < bits.Length; i++)
             {
                 if (bits[i])
                 {
-                    byte temp = (byte)(1 << (7 - i));
                     result |= (byte)(1 << (7 - i));
                 }                    
             }
             return result;
+        }
+
+        internal byte[] ExtractRecord(int cellOffset)
+        {
+            (ulong recordSize, int rowIdOffset) = SliceOffVarInt(cellOffset);
+            (_, int recordOffset) = SliceOffVarInt(rowIdOffset);
+            byte[] recordBuffer = new byte[recordSize];
+            databaseFile.Seek(recordOffset, SeekOrigin.Begin);
+            checked
+            {
+                databaseFile.Read(recordBuffer, 0, (int)recordSize);
+            }            
+            return recordBuffer;
         }
     }
 }
