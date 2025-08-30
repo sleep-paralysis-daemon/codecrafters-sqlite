@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using static System.Buffers.Binary.BinaryPrimitives;
 using System.Runtime.CompilerServices;
-[assembly: InternalsVisibleTo("test-codecrafters-sqlite")]
+[assembly: InternalsVisibleTo("tests-codecrafters-sqlite")]
 
 namespace codecrafters_sqlite.src
 {
