@@ -1,3 +1,4 @@
+using System.Reflection;
 using static System.Buffers.Binary.BinaryPrimitives;
 namespace codecrafters_sqlite.src
 {
@@ -24,7 +25,16 @@ namespace codecrafters_sqlite.src
                     Console.WriteLine($"number of tables: {metaData.TableCount}");
                     break;
                 case ".tables":
-
+                    List<string> tables = [];
+                    foreach (int cellPointer in metaData.cellPtrArray)
+                    {
+                        Record record = new(cellPointer);
+                        tables.Add((string)record.recordFields[2]);
+                    }
+                    foreach (string table in tables)
+                    {
+                        Console.WriteLine(table);
+                    }
                     break;
                 default:
                     throw new InvalidOperationException($"Invalid command: {command}");

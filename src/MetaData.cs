@@ -12,7 +12,7 @@ namespace codecrafters_sqlite.src
 {
     public class MetaData
     {
-        internal const int magicStringOffest = 16;
+        internal const int magicStringOffset = 16;
         internal const int fileHeaderOffset = 100;
         internal const int pageHeaderOffset = 8;
 
@@ -20,7 +20,7 @@ namespace codecrafters_sqlite.src
         private readonly int _pageSize;
         private int _tableCount;
         internal int[] cellPtrArray;
-        internal FileStream databaseFile;
+        internal static FileStream databaseFile;
 
         internal MetaData(string path)
         {
@@ -34,8 +34,8 @@ namespace codecrafters_sqlite.src
                 Console.Error.WriteLine(ex.Message);
             }
 
-            _pageSize = ReadTwoBytes(magicStringOffest);
-            TableCount = ReadTwoBytes(fileHeaderOffset + 3);
+            _pageSize = Utils.ReadTwoBytes(magicStringOffset);
+            TableCount = Utils.ReadTwoBytes(fileHeaderOffset + 3);
 
             cellPtrArray = new int[TableCount];
             int arrayStartOffset = fileHeaderOffset + pageHeaderOffset;
@@ -43,7 +43,7 @@ namespace codecrafters_sqlite.src
             for (int i = 0; i < TableCount; i++)
             {
                 arrayIndexOffset = i * 2; // 2 bytes per array element
-                cellPtrArray[i] = ReadTwoBytes(arrayIndexOffset + arrayStartOffset);
+                cellPtrArray[i] = Utils.ReadTwoBytes(arrayIndexOffset + arrayStartOffset);
             }
         }
         internal int TableCount
@@ -54,124 +54,6 @@ namespace codecrafters_sqlite.src
         internal int PageSize
         {
             get { return _pageSize; }
-        }
-
-        private int ReadTwoBytes(int offset)
-        {
-            byte[] buffer = new byte[2];
-            databaseFile.Seek(offset, SeekOrigin.Begin);
-            databaseFile.Read(buffer, 0, 2);
-            return ReadUInt16BigEndian(buffer);
-        }
-
-        /// <summary>
-        /// Slice VarInt (1-9 bytes) from starting offset
-        /// </summary>
-        /// <param name="varIntOffset"> Starting offset from file's beginning </param>
-        /// <returns> A tuple with VarInt and next byte offset </returns>
-        internal (ulong, int) SliceOffVarInt(int varIntOffset)
-        {
-            int byteCount = 0;
-            byte[] buffer = new byte[1];
-            while (true)
-            {
-                databaseFile.Seek(varIntOffset + byteCount, SeekOrigin.Begin);
-                databaseFile.Read(buffer, 0, 1);
-                byteCount++;
-                if (buffer[0] <= 0x7F || byteCount == 9) // bytes 0111_1111 and lower: most significant bit = 0 means there's no more bytes in VarInt.
-                    break;                              // max number of VarInt bytes is 9
-            }
-            byte[] output = new byte[byteCount];
-            databaseFile.Seek(varIntOffset, SeekOrigin.Begin);
-            databaseFile.Read(buffer, 0, byteCount);
-            ulong result = ConvertVarInt(buffer);
-            int nextByteOffset = varIntOffset + byteCount;
-            return (result, nextByteOffset);
-        }
-
-
-        internal ulong ConvertVarInt(byte[] bytes)
-        {
-            Stack<bool> strippedBits = new();
-            int processedBytes = 0;
-            foreach(byte currentByte in bytes)
-            {
-                bool[] bools = ConvertByteToBits(currentByte);
-                processedBytes++;
-                for (int i = 0; i < bools.Length; i++)
-                {
-                    if (i == 0 && processedBytes < 9) continue;  // skip most significant bit for all but 9th byte
-                    else strippedBits.Push(bools[i]);
-                }
-            }
-            Stack<bool> reassembledByte = new();
-            Stack<byte> resultBytes = new();
-            while (strippedBits.Count > 0)
-            {
-                reassembledByte.Push(strippedBits.Pop());
-                if (reassembledByte.Count == 8)
-                {
-                    resultBytes.Push(ConvertBitsToByte(reassembledByte.ToArray()));
-                    reassembledByte.Clear();
-                }
-            }
-            if (reassembledByte.Count > 0)
-            {
-                while (reassembledByte.Count < 8) 
-                    reassembledByte.Push(false);
-                resultBytes.Push(ConvertBitsToByte(reassembledByte.ToArray()));
-            }
-            while (resultBytes.Count < 8)
-            {
-                resultBytes.Push(0x00);
-            }
-            ReadOnlySpan<byte> result = resultBytes.ToArray();
-            return ReadUInt64BigEndian(result);
-        }
-
-        /// <summary>
-        /// Glues together 8 bits into a byte
-        /// </summary>
-        /// <param name="bits"></param>
-        /// <returns></returns>
-        
-        private bool[] ConvertByteToBits(byte input)
-        {
-            bool[] output = new bool[8];
-            byte mask;
-            for (int i = 0; i < 8; i++ )
-            {
-                mask = 0b_0000_0001;
-                mask = (byte)(mask << (7 - i));
-                output[i] = ((input & mask) != 0);
-            }
-            return output;
-        }
-        private byte ConvertBitsToByte(bool[] bits)
-        {
-            if (bits.Length != 8) throw new ArgumentOutOfRangeException("Need exactly 8 bits for a byte");
-            byte result = 0;
-            for (int i = 0; i < bits.Length; i++)
-            {
-                if (bits[i])
-                {
-                    result |= (byte)(1 << (7 - i));
-                }                    
-            }
-            return result;
-        }
-
-        internal byte[] ExtractRecord(int cellOffset)
-        {
-            (ulong recordSize, int rowIdOffset) = SliceOffVarInt(cellOffset);
-            (_, int recordOffset) = SliceOffVarInt(rowIdOffset);
-            byte[] recordBuffer = new byte[recordSize];
-            databaseFile.Seek(recordOffset, SeekOrigin.Begin);
-            checked
-            {
-                databaseFile.Read(recordBuffer, 0, (int)recordSize);
-            }            
-            return recordBuffer;
-        }
+        }        
     }
 }
