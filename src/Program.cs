@@ -25,15 +25,16 @@ namespace codecrafters_sqlite.src
                     Console.WriteLine($"number of tables: {metaData.TableCount}");
                     break;
                 case ".tables":
-                    List<string> tables = [];
+                    List<string> tableNames = [];
                     foreach (int cellPointer in metaData.cellPtrArray)
                     {
                         Record record = new(cellPointer);
-                        tables.Add((string)record.recordFields[2]);
+                        tableNames.Add((string)record.recordFields[2]);
                     }
-                    foreach (string table in tables)
+                    foreach (string name in tableNames)
                     {
-                        Console.WriteLine(table);
+                        if (name != "sqlite_sequence")
+                            Console.WriteLine(name);
                     }
                     break;
                 default:
