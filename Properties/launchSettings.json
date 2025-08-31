@@ -2,7 +2,7 @@
   "profiles": {
     "codecrafters-sqlite": {
       "commandName": "Project",
-      "commandLineArgs": "\"C:\\\\users\\\\diman\\\\source\\\\repos\\\\codecrafters-sqlite-csharp\\\\sample.db\"\r\n\".dbinfo\""
+      "commandLineArgs": "\"C:\\\\users\\\\diman\\\\source\\\\repos\\\\codecrafters-sqlite-csharp\\\\sample.db\"\r\n\".tables\""
     }
   }
 }
