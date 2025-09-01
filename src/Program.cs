@@ -25,17 +25,22 @@ namespace codecrafters_sqlite.src
                     Console.WriteLine($"number of tables: {metaData.TableCount}");
                     break;
                 case ".tables":
-                    List<string> tableNames = [];
-                    foreach (int cellPointer in metaData.cellPtrArray)
+                    foreach (Schema.Table table in metaData.schema.tables)
                     {
-                        Record record = new(cellPointer);
-                        tableNames.Add((string)record.recordFields[2]);
+                        if (table.TableName.Contains("sqlite_")) continue; // don't display inner system related tables
+                        Console.WriteLine(table.TableName);
                     }
-                    foreach (string name in tableNames)
-                    {
-                        if (name.Contains("sqlite_")) continue; // don't display inner system related tables
-                        Console.WriteLine(name);
-                    }
+                    break;
+                case "SELECT COUNT(*) FROM apples":
+                    int rootPageNumber =
+                         metaData.schema.tables
+                        .Where(table => table.TableName == "apples")
+                        .Select(table => table.RootPage)
+                        .FirstOrDefault();
+                    int pageStartOffset = (rootPageNumber - 1) * metaData.PageSize;
+                    pageStartOffset += 3;
+                    int cellNumber = Utils.ReadTwoBytes(pageStartOffset);
+                    Console.WriteLine(cellNumber);
                     break;
                 default:
                     throw new InvalidOperationException($"Invalid command: {command}");
