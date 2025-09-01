@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static System.Buffers.Binary.BinaryPrimitives;
+﻿using static System.Buffers.Binary.BinaryPrimitives;
 using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("tests-codecrafters-sqlite")]
 
@@ -21,10 +16,11 @@ namespace codecrafters_sqlite.src
         }
 
         /// <summary>
-        /// Slice VarInt (1-9 bytes) from starting offset
+        /// Peel off a VarInt (1-9 bytes) from starting offset
         /// </summary>
-        /// <param name="varIntOffset"> Starting offset from file's beginning </param>
-        /// <returns> A tuple with VarInt and next byte offset</returns>
+        /// <param name="varIntOffset"> Starting offset passed by reference, 
+        ///        bу the end of the method points to next byte after VarInt. </param>
+        /// <returns>Unsigned 64-bit Big Endian Integer</returns>
         internal static ulong ParseVarInt(ref int varIntOffset)
         {
             int byteCount = 0;
