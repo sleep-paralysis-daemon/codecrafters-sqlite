@@ -29,7 +29,7 @@ namespace codecrafters_sqlite.src
                     foreach (int cellPointer in metaData.cellPtrArray)
                     {
                         Record record = new(cellPointer);
-                        tableNames.Add((string)record.recordColumns[2]);
+                        tableNames.Add((string)record.recordFields[2]);
                     }
                     foreach (string name in tableNames)
                     {

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Buffers.Binary.BinaryPrimitives;
 
 namespace codecrafters_sqlite.src
 {
@@ -23,12 +24,17 @@ namespace codecrafters_sqlite.src
         BLOB,
         String
     }
+
+    /// <summary>
+    /// Reads one record (row in a table) at specified offset.
+    /// Values in recordColumns correspond to fields (columns
+    /// </summary>
     internal class Record
     {
-        internal List<object> recordColumns;
+        internal List<object> recordFields;
         internal Record(int currentOffset)
         {
-            recordColumns = new List<object>();
+            recordFields = new List<object>();
             ulong recordSize = Utils.ParseVarInt(ref currentOffset);
             _ = Utils.ParseVarInt(ref currentOffset);  // rowId for now isn't necessary
 
@@ -49,13 +55,52 @@ namespace codecrafters_sqlite.src
                 byte[] contentBuffer = new byte[contentSize];
                 MetaData.databaseFile.Seek(currentOffset, SeekOrigin.Begin);
                 MetaData.databaseFile.ReadExactly(contentBuffer, 0, contentSize);
-                if (contentType == SerialType.String)
+                switch (contentType)
                 {
-                    recordColumns.Add(System.Text.Encoding.Default.GetString(contentBuffer));
-                }
-                else
-                {
-                    recordColumns.Add(contentBuffer);
+                    case SerialType.Null:
+                        recordFields.Add(null);
+                        break;
+                    case SerialType.Int8:
+                        recordFields.Add((byte)contentBuffer[0]);
+                        break;
+                    case SerialType.Int16:
+                        recordFields.Add(ReadInt16BigEndian(contentBuffer));
+                        break;
+                    case SerialType.Int24:  // there's no stram reader for 24 bit int, so need to add one more empty byte to have 32 bits
+                        Stack<byte> fillTo32Buffer = new Stack<byte>(contentBuffer);
+                        fillTo32Buffer.Push((byte)0); 
+                        recordFields.Add(ReadInt32BigEndian([.. fillTo32Buffer]));
+                        break;
+                    case SerialType.Int32:
+                        recordFields.Add(ReadInt32BigEndian(contentBuffer));
+                        break;
+                    case SerialType.Int48:  // again, no 48 bit reader
+                        Stack<byte> fillTo64Buffer = new Stack<byte>(contentBuffer);
+                        while (fillTo64Buffer.Count < 8) fillTo64Buffer.Push((byte)0);
+                        recordFields.Add(ReadInt64BigEndian([.. fillTo64Buffer]));
+                        break;
+                    case SerialType.Int64:
+                        recordFields.Add(ReadInt64BigEndian(contentBuffer));
+                        break;
+                    case SerialType.Float64:
+                        recordFields.Add(ReadDoubleBigEndian(contentBuffer));
+                        break;
+                    case SerialType.Int_0:
+                        recordFields.Add(0);
+                        break;
+                    case SerialType.Int_1:
+                        recordFields.Add(1);
+                        break;
+                    case SerialType.Reserved:
+                        throw new NotImplementedException("Figure out what reserved variable does");
+                        break;
+                    case SerialType.BLOB:
+                        recordFields.Add(contentBuffer);
+                        break;
+                    case SerialType.String:
+                        recordFields.Add(Encoding.Default.GetString(contentBuffer));
+                        break;
+
                 }
                 currentOffset += contentSize;
             }
