@@ -25,60 +25,56 @@ namespace codecrafters_sqlite.src
     }
     internal class Record
     {
-        private readonly byte[] recordBuffer;
-        internal List<object> recordFields;
-        internal Record(int recordOffset)
+        internal List<object> recordColumns;
+        internal Record(int currentOffset)
         {
-            recordFields = new List<object>();
-            (ulong recordSize, int rowIdOffset) = Utils.SliceOffVarInt(recordOffset);
+            recordColumns = new List<object>();
+            ulong recordSize = Utils.ParseVarInt(ref currentOffset);
+            _ = Utils.ParseVarInt(ref currentOffset);  // rowId for now isn't necessary
 
-            (_, int headerStartOffset) = Utils.SliceOffVarInt(rowIdOffset);  // rowId, for now is unnecessary
+            int headerStartOffset = currentOffset;
+            ulong headerSize = Utils.ParseVarInt(ref currentOffset);
 
-            (ulong headerSize, int recordHeaderOffset) = Utils.SliceOffVarInt(headerStartOffset);
-            int headerBytesScanned = 1; // already scanned headerSize byte
-            List<(SerialType, int)> columnHeaders = new();
-
-            // gather header VarInts, each one designates the type and size of a record row
-            while (headerBytesScanned < (int)headerSize)
+            List<(SerialType, int)> columnTypeSize = new();
+            int endOfHeaderOffset = headerStartOffset + (int)headerSize;        
+            while (currentOffset < endOfHeaderOffset)
             {
-                (ulong columnHeaderValue, int nextOffset) = Utils.SliceOffVarInt(recordHeaderOffset);
-                columnHeaders.Add(ParseColumnHeader(columnHeaderValue));
-                headerBytesScanned += (nextOffset - recordHeaderOffset);
-                recordHeaderOffset = nextOffset;
+                ulong columnHeaderVarInt = Utils.ParseVarInt(ref currentOffset);
+                (SerialType columnType, int columnSize) columnHeader = ParseColumnHeader(columnHeaderVarInt);
+                columnTypeSize.Add(columnHeader);
             }
 
-            int recordBodyOffset = recordHeaderOffset;
-            foreach ((SerialType contentType, int contentSize) in columnHeaders)
+            foreach ((SerialType contentType, int contentSize) in columnTypeSize)
             {
                 byte[] contentBuffer = new byte[contentSize];
-                MetaData.databaseFile.Seek(recordBodyOffset, SeekOrigin.Begin);
-                MetaData.databaseFile.ReadExactly(contentBuffer, 0, (int)contentSize);
+                MetaData.databaseFile.Seek(currentOffset, SeekOrigin.Begin);
+                MetaData.databaseFile.ReadExactly(contentBuffer, 0, contentSize);
                 if (contentType == SerialType.String)
                 {
-                    recordFields.Add(System.Text.Encoding.Default.GetString(contentBuffer));
+                    recordColumns.Add(System.Text.Encoding.Default.GetString(contentBuffer));
                 }
                 else
                 {
-                    recordFields.Add(contentBuffer);
+                    recordColumns.Add(contentBuffer);
                 }
-                recordBodyOffset += contentSize;
+                currentOffset += contentSize;
             }
         }
 
 
-        internal static (SerialType, int) ParseColumnHeader(ulong columnSize)
+        internal static (SerialType, int) ParseColumnHeader(ulong serialType)
         {
-            if (columnSize >= 12 && columnSize % 2 == 0)
+            if (serialType >= 12 && serialType % 2 == 0)
             {
-                int contentSize = ((int)columnSize - 12) / 2;
+                int contentSize = ((int)serialType - 12) / 2;
                 return (SerialType.BLOB, contentSize);
             }
-            if (columnSize >= 13 && columnSize % 2 == 1)
+            if (serialType >= 13 && serialType % 2 == 1)
             {
-                int contentSize = ((int)columnSize - 13) / 2;
+                int contentSize = ((int)serialType - 13) / 2;
                 return (SerialType.String, contentSize);
             }
-            switch (columnSize)
+            switch (serialType)
             {
                 case 0:
                     return (SerialType.Null, 0);

@@ -16,7 +16,7 @@ namespace codecrafters_sqlite.src
             byte[] buffer = new byte[2];
             
             MetaData.databaseFile.Seek(offset, SeekOrigin.Begin);
-            MetaData.databaseFile.Read(buffer, 0, 2);
+            MetaData.databaseFile.ReadExactly(buffer, 0, 2);
             return ReadUInt16BigEndian(buffer);
         }
 
@@ -25,71 +25,65 @@ namespace codecrafters_sqlite.src
         /// </summary>
         /// <param name="varIntOffset"> Starting offset from file's beginning </param>
         /// <returns> A tuple with VarInt and next byte offset</returns>
-        internal static (ulong, int) SliceOffVarInt(int varIntOffset)
+        internal static ulong ParseVarInt(ref int varIntOffset)
         {
             int byteCount = 0;
             byte[] byteBuffer = new byte[1];
-            while (true)
+            do
             {
                 MetaData.databaseFile.Seek(varIntOffset + byteCount, SeekOrigin.Begin);
-                MetaData.databaseFile.Read(byteBuffer, 0, 1);
-                byteCount++;
-                if (byteBuffer[0] <= 0x7F || byteCount == 9) // bytes 0111_1111 and lower: most significant bit = 0 means there's no more bytes in VarInt.
-                    break;                                  // max number of VarInt bytes is 9
-            }
-            byte[] outputBuffer = new byte[byteCount];
+                MetaData.databaseFile.ReadExactly(byteBuffer, 0, 1);
+                byteCount++;                                        
+            } while (byteBuffer[0] > 0b_0111_1111 && byteCount < 9);
+
+            byte[] varIntBuffer = new byte[byteCount];
             MetaData.databaseFile.Seek(varIntOffset, SeekOrigin.Begin);
-            MetaData.databaseFile.Read(outputBuffer, 0, byteCount);
-            ulong result = ConvertVarInt(byteBuffer);
-            int nextByteOffset = varIntOffset + byteCount;
-            return (result, nextByteOffset);
-        }
+            MetaData.databaseFile.ReadExactly(varIntBuffer, 0, byteCount);
+            varIntOffset += byteCount;
 
-
-        internal static ulong ConvertVarInt(byte[] bytes)
-        {
-            Stack<bool> strippedBits = new();
-            int processedBytes = 0;
-            foreach (byte currentByte in bytes)
+            Stack<bool> cleanedBits = new();
+            int processedBytesCount = 0;
+            foreach (byte currentByte in byteBuffer)
             {
-                bool[] bools = ConvertByteToBits(currentByte);
-                processedBytes++;
-                for (int i = 0; i < bools.Length; i++)
+                bool[] bits = ConvertByteToBits(currentByte);
+                processedBytesCount++;
+                for (int i = 0; i < bits.Length; i++)
                 {
-                    if (i == 0 && processedBytes < 9) continue;  // skip most significant bit for all but 9th byte
-                    else strippedBits.Push(bools[i]);
+                    if (i == 0 && processedBytesCount < 9) continue;  // don't add most significant bit for all but 9th byte
+                    else cleanedBits.Push(bits[i]);
                 }
             }
+
             Stack<bool> reassembledByte = new();
-            Stack<byte> resultBytes = new();
-            while (strippedBits.Count > 0)
+            Stack<byte> resultVarInt = new();
+            while (cleanedBits.Count > 0)
             {
-                reassembledByte.Push(strippedBits.Pop());
+                reassembledByte.Push(cleanedBits.Pop());
                 if (reassembledByte.Count == 8)
                 {
-                    resultBytes.Push(ConvertBitsToByte(reassembledByte.ToArray()));
+                    byte newByte = ConvertBitsToByte([..reassembledByte]);
+                    resultVarInt.Push(newByte);
                     reassembledByte.Clear();
                 }
             }
+
             if (reassembledByte.Count > 0)
             {
                 while (reassembledByte.Count < 8)
                     reassembledByte.Push(false);
-                resultBytes.Push(ConvertBitsToByte(reassembledByte.ToArray()));
+
+                byte newByte = ConvertBitsToByte([.. reassembledByte]);
+                resultVarInt.Push(newByte);
             }
-            while (resultBytes.Count < 8)
+
+            while (resultVarInt.Count < 8)
             {
-                resultBytes.Push(0x00);
+                resultVarInt.Push(0x00);
             }
-            ReadOnlySpan<byte> result = resultBytes.ToArray();
+
+            ReadOnlySpan<byte> result = resultVarInt.ToArray();
             return ReadUInt64BigEndian(result);
         }
-
-        /// <summary>
-        /// Glues together 8 bits into a byte
-        /// </summary>
-        /// <param name="bits"></param>
-        /// <returns></returns>
 
         private static bool[] ConvertByteToBits(byte input)
         {
