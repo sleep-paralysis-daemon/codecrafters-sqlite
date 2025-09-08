@@ -16,26 +16,17 @@ namespace codecrafters_sqlite.src
         internal const int fileHeaderOffset = 100;
         internal const int pageHeaderOffset = 8;
 
-        private readonly string _path;
         private readonly int _pageSize;
         private int _tableCount;
         internal Schema schema;
-        internal static FileStream databaseFile;
+        internal DatabaseFile databaseFile;
 
         internal MetaData(string path)
         {
-            try
-            {
-                databaseFile = File.OpenRead(path);
-                this._path = path;
-            }
-            catch (FileNotFoundException ex)
-            {
-                Console.Error.WriteLine(ex.Message);
-            }
+            databaseFile = new(path);
 
-            _pageSize = Utils.ReadTwoBytes(magicStringOffset);
-            TableCount = Utils.ReadTwoBytes(fileHeaderOffset + 3);
+            _pageSize = databaseFile.ReadTwoBytes(magicStringOffset);
+            TableCount = databaseFile.ReadTwoBytes(fileHeaderOffset + 3);
 
             int[] cellPtrArray = new int[TableCount];
             int arrayStartOffset = fileHeaderOffset + pageHeaderOffset;
@@ -43,9 +34,9 @@ namespace codecrafters_sqlite.src
             for (int i = 0; i < TableCount; i++)
             {
                 arrayIndexOffset = i * 2; // 2 bytes per array element
-                cellPtrArray[i] = Utils.ReadTwoBytes(arrayIndexOffset + arrayStartOffset);
+                cellPtrArray[i] = databaseFile.ReadTwoBytes(arrayIndexOffset + arrayStartOffset);
             }
-            schema = new Schema(cellPtrArray);
+            schema = new Schema(databaseFile, cellPtrArray);
         }
         internal int TableCount
         {

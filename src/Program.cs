@@ -31,15 +31,14 @@ namespace codecrafters_sqlite.src
                         Console.WriteLine(table.TableName);
                     }
                     break;
-                case "SELECT COUNT(*) FROM apples":
-                    int rootPageNumber =
-                         metaData.schema.tables
+                case "SELECT COUNT(*) FROM apples": // proper SQL parser is to be implemented in the future
+                    int rootPageNumber = metaData.schema.tables
                         .Where(table => table.TableName == "apples")
                         .Select(table => table.RootPage)
                         .FirstOrDefault();
                     int pageStartOffset = (rootPageNumber - 1) * metaData.PageSize;
                     pageStartOffset += 3;
-                    int cellNumber = Utils.ReadTwoBytes(pageStartOffset);
+                    int cellNumber = metaData.databaseFile.ReadTwoBytes(pageStartOffset);
                     Console.WriteLine(cellNumber);
                     break;
                 default:

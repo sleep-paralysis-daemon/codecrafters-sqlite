@@ -89,4 +89,3 @@ namespace codecrafters_sqlite.src
         }
     }
 }
-}

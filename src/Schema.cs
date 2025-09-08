@@ -9,12 +9,12 @@ namespace codecrafters_sqlite.src
     internal class Schema
     {        
         internal List<Table> tables;
-        internal Schema(int[] rowsPtrArray)
+        internal Schema(DatabaseFile databaseFile, int[] rowsPtrArray)
         {
             tables = [];
             foreach (int pointer in rowsPtrArray)
             {
-                List<object> columns = Utils.ParseRecord(pointer);
+                List<object> columns = RecordParser.Parse(databaseFile, pointer);
                 Table table = new Table(
                     (string)columns[0],
                     (string)columns[1],
