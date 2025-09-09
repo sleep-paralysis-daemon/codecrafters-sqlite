@@ -9,12 +9,12 @@ namespace codecrafters_sqlite.src
     internal class Schema
     {        
         internal List<Table> tables;
-        internal Schema(DatabaseFile databaseFile, int[] rowsPtrArray)
+        internal Schema(File databaseFile, int[] rowsPtrArray)
         {
             tables = [];
             foreach (int pointer in rowsPtrArray)
             {
-                DatabaseRecord dbRecord = new(databaseFile, pointer);
+                Record dbRecord = new(databaseFile, pointer);
                 List<object> columns = dbRecord.payload;
                 Table table = new Table(
                     (string)columns[0],

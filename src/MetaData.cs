@@ -19,24 +19,24 @@ namespace codecrafters_sqlite.src
         private readonly int _pageSize;
         private int _tableCount;
         internal Schema schema;
-        internal DatabaseFile databaseFile;
+        internal File dbFile;
 
         internal MetaData(string path)
         {
-            databaseFile = new(path);
+            dbFile = new(path);
 
-            _pageSize = databaseFile.ReadTwoBytes(magicStringOffset);
-            TableCount = databaseFile.ReadTwoBytes(fileHeaderOffset + 3);
+            _pageSize = dbFile.Parse2Bytes(magicStringOffset);
+            TableCount = dbFile.Parse2Bytes(fileHeaderOffset + 3);
 
-            int[] cellPtrArray = new int[TableCount];
+            int[] recordPtrArray = new int[TableCount];
             int arrayStartOffset = fileHeaderOffset + pageHeaderOffset;
             int arrayIndexOffset = 0;
             for (int i = 0; i < TableCount; i++)
             {
                 arrayIndexOffset = i * 2; // 2 bytes per array element
-                cellPtrArray[i] = databaseFile.ReadTwoBytes(arrayIndexOffset + arrayStartOffset);
+                recordPtrArray[i] = dbFile.Parse2Bytes(arrayIndexOffset + arrayStartOffset);
             }
-            schema = new Schema(databaseFile, cellPtrArray);
+            schema = new Schema(dbFile, recordPtrArray);
         }
         internal int TableCount
         {

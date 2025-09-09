@@ -11,17 +11,17 @@ namespace codecrafters_sqlite.src
         /// <param name="databaseFile">database file to read</param>
         /// <param name="varIntOffset">file offset (in bytes, from file's beginning. After parsing, points to byte after VarInt)(in bytes</param>
         /// <returns>Unsigned 64-bit Two's Compliment Big Endian Integer</returns>
-        internal static ulong Parse(DatabaseFile databaseFile, ref int varIntOffset)
+        internal static ulong Parse(File databaseFile, ref int varIntOffset)
         {
             int byteCount = 0;
             byte[] byteBuffer = new byte[1];
             do
             {
-                byteBuffer = databaseFile.ReadBytes(varIntOffset + byteCount, byteBuffer.Length);
+                byteBuffer = databaseFile.GetBytes(varIntOffset + byteCount, byteBuffer.Length);
                 byteCount++;
             } while (byteBuffer[0] > 0b_0111_1111 && byteCount < 9);
 
-            byte[] varIntBuffer = databaseFile.ReadBytes(varIntOffset, byteCount);
+            byte[] varIntBuffer = databaseFile.GetBytes(varIntOffset, byteCount);
             varIntOffset += byteCount;
 
             Stack<bool> cleanedBits = new();

@@ -36,7 +36,7 @@ namespace codecrafters_sqlite.src
                         .FirstOrDefault();
                     int pageStartOffset = (rootPageNumber - 1) * metaData.PageSize;
                     pageStartOffset += 3;
-                    int cellNumber = metaData.databaseFile.ReadTwoBytes(pageStartOffset);
+                    int cellNumber = metaData.dbFile.Parse2Bytes(pageStartOffset);
                     Console.WriteLine(cellNumber);
                     break;
                 default:
