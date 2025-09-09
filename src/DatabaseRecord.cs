@@ -58,22 +58,23 @@ namespace codecrafters_sqlite.src
 
             List<(SerialType, int)> columnTypeSize = new();
             int headerEnd = headerStart + (int)headerSize;
+            List<ulong> serialTypes = [];
             while (currentOffset < headerEnd)
             {
-                ulong columnHeaderVarInt = VarInt.Parse(databaseFile, ref currentOffset); // BUG!!!!
-                (SerialType columnType, int columnSize) columnHeader = ParseRecordHeader(columnHeaderVarInt);
-                columnTypeSize.Add(columnHeader);
+                ulong varInt = VarInt.Parse(databaseFile, ref currentOffset);
+                serialTypes.Add(varInt);
             }
 
-            foreach ((SerialType contentType, int contentSize) in columnTypeSize)
+            foreach (ulong type in serialTypes)
             {
-                byte[] contentBuffer = databaseFile.ReadBytes(currentOffset, contentSize);
-                switch (contentType)
+                int contentByteLength = 0;
+                switch (type)
                 {
-                    case SerialType.Null:
+                    case 0:
                         payload.Add(null!);
                         break;
-                    case SerialType.Int8:
+                    case 1:
+                        contentByteLength = 1;
                         payload.Add((byte)contentBuffer[0]);
                         break;
                     case SerialType.Int16:
@@ -115,7 +116,7 @@ namespace codecrafters_sqlite.src
                         break;
 
                 }
-                currentOffset += contentSize;
+                currentOffset += contentByteLength;
             }
         }
         private static (SerialType, int) ParseRecordHeader(ulong serialType)

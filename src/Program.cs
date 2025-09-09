@@ -1,5 +1,3 @@
-using System.Reflection;
-using static System.Buffers.Binary.BinaryPrimitives;
 namespace codecrafters_sqlite.src
 {
     class Program
@@ -49,11 +47,3 @@ namespace codecrafters_sqlite.src
 
     }
 }
-
-
-
-
-
-
-
-// Parse command and act accordingly

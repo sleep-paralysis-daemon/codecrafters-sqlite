@@ -14,7 +14,8 @@ namespace codecrafters_sqlite.src
             tables = [];
             foreach (int pointer in rowsPtrArray)
             {
-                List<object> columns = RecordParser.Parse(databaseFile, pointer);
+                DatabaseRecord dbRecord = new(databaseFile, pointer);
+                List<object> columns = dbRecord.payload;
                 Table table = new Table(
                     (string)columns[0],
                     (string)columns[1],
