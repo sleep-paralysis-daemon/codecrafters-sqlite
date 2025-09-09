@@ -4,7 +4,13 @@ using static System.Buffers.Binary.BinaryPrimitives;
 namespace codecrafters_sqlite.src
 {
     static class VarInt
-    {
+    {   
+        /// <summary>
+        /// Read a vriable length integer (1-9 bytes)
+        /// </summary>
+        /// <param name="databaseFile">database file to read</param>
+        /// <param name="varIntOffset">file offset (in bytes, from file's beginning. After parsing, points to byte after VarInt)(in bytes</param>
+        /// <returns>Unsigned 64-bit Two's Compliment Big Endian Integer</returns>
         internal static ulong Parse(DatabaseFile databaseFile, ref int varIntOffset)
         {
             int byteCount = 0;
