@@ -6,20 +6,21 @@ namespace codecrafters_sqlite.src
 {
     internal class File
     {
+        private const int _MagicStringOffset = 16;
         private const int _fileHeaderOffset = 100;
         private const int _pageHeaderOffset = 8;
 
         private FileStream _databaseFile;
         internal readonly string path;
-        internal readonly short pageSize;
-        internal int TableCount { get; private set; }
-
+        internal ushort PageSize { get; private set; }
+        internal ushort TableCount { get; private set; }
+        internal Table[] Tables { get; private set; }
 
         internal File(string path)
         {
+            this.path = path;
             try
             {
-                this.path = path;
                 _databaseFile = System.IO.File.OpenRead(path);
             }
             catch (FileNotFoundException ex)
@@ -27,12 +28,19 @@ namespace codecrafters_sqlite.src
                 Console.Error.WriteLine(ex.Message);
             }
 
-            int offset = 16;
-            byte[] buffer = GetBytes(offset, 2);
-            pageSize = ReadInt16BigEndian(buffer);
+            PageSize = Parse2Bytes(_MagicStringOffset);
+            TableCount = Parse2Bytes(_fileHeaderOffset + 3);
+            Tables = new Table[TableCount];
+            int arrayStartOffset = _fileHeaderOffset + _pageHeaderOffset; // schema pointer array is always located on the first page, right after the page header
+            int arrayRecordOffset = 0;
+            for (int i = 0; i < TableCount; i++)
+            {
+                arrayRecordOffset = i * 2; // 2 bytes per record pointer
+                int tableSchemaPointer = this.Parse2Bytes(arrayStartOffset + arrayRecordOffset);
+                Record schemaRecord = new Record(this, tableSchemaPointer);
+                Tables[i] = new Table(this, schemaRecord);
+            }
 
-            buffer = GetBytes(_fileHeaderOffset + 3, 2);
-            TableCount = ReadInt16BigEndian(buffer);
         }
 
         internal byte[] GetBytes(int offset, int length)
@@ -54,13 +62,18 @@ namespace codecrafters_sqlite.src
         internal ushort Parse2Bytes(int offset)
         {
             byte[] buffer = new byte[2];
-
             _databaseFile.Seek(offset, SeekOrigin.Begin);
             _databaseFile.ReadExactly(buffer, 0, 2);
             return ReadUInt16BigEndian(buffer);
         }
         
-        internal int Parse4Bytes
+        internal uint Parse4Bytes(int offset)
+        {
+            byte[] buffer = new byte[4];
+            _databaseFile.Seek(offset, SeekOrigin.Begin);
+            _databaseFile.ReadExactly(buffer, 0, 4);
+            return ReadUInt32BigEndian(buffer);
+        }
 
     }
 }

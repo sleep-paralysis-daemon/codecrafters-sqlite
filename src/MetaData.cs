@@ -20,6 +20,7 @@ namespace codecrafters_sqlite.src
         private int _tableCount;
         internal Schema schema;
         internal File dbFile;
+        
 
         internal MetaData(string path)
         {

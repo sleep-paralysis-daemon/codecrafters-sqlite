@@ -13,7 +13,7 @@ namespace codecrafters_sqlite.src
         {
             int offset = 0;
             if (pageNumber == 1) offset = 100;
-            else offset = (pageNumber - 1) * databaseFile.pageSize;
+            else offset = (pageNumber - 1) * databaseFile.PageSize;
             
                 
 
