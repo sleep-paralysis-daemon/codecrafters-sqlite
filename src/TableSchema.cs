@@ -3,14 +3,14 @@
 
 namespace codecrafters_sqlite.src
 {
-    internal class Table
+    internal class TableSchema
     {
         internal string Type { get; private set; }
         internal string Name { get; private set; }
         internal string TableName { get; private set; }
         internal byte RootPage { get; private set; }
         internal string SQL { get; private set; }
-        internal Table(File dbFile, Record schemaRecord)
+        internal TableSchema(File dbFile, Record schemaRecord)
         {
             try
             {
@@ -25,5 +25,7 @@ namespace codecrafters_sqlite.src
                 throw new InvalidCastException("Couldn't convert schema record entries! Possibly wrong record.");
             }
         }
+
+
     }
 }

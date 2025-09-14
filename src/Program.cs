@@ -22,22 +22,27 @@ namespace codecrafters_sqlite.src
                     Console.WriteLine($"number of tables: {dbFile.TableCount}");
                     break;
                 case ".tables":
-                    foreach (Table table in dbFile.Tables)
+                    foreach (TableSchema table in dbFile.Tables)
                     {
                         if (table.TableName.Contains("sqlite_")) continue; // don't display inner system related tables
                         Console.WriteLine(table.SQL);
                     }
                     break;
-                case "SELECT COUNT(*) FROM apples": // proper SQL parser is to be implemented in the future
-                   
-                   //int rootPageNumber = metaData.schema.tables
-                   //    .Where(table => table.TableName == "apples")
-                   //    .Select(table => table.RootPage)
-                   //    .FirstOrDefault();
-                   //int pageStartOffset = (rootPageNumber - 1) * dbFile.PageSize;
-                   //pageStartOffset += 3;
-                   //int cellNumber = dbFile.Parse2Bytes(pageStartOffset);
-                   //Console.WriteLine(cellNumber);
+                case string s when (s.Contains("SELECT")):
+                    List<Token> tokens = Lexer.ParseQuery(command);
+                    SelectNode node = ASTBuilder.ParseSelectQuery(tokens);
+                    if (node.tables.Count > 1) throw new NotImplementedException("Parsing multiple tables doesn't work yet");
+                    int rootPage = 0;
+                    string SQL = "";
+                    foreach (TableSchema table in dbFile.Tables)
+                    {
+                        if (String.Equals(table.Name, node.tables[0], StringComparison.OrdinalIgnoreCase))
+                        {
+                            rootPage = table.RootPage;
+                            SQL = table.SQL;
+                        }
+                    }
+                    Console.WriteLine(SQL);
                     break;
                 default:
                     throw new InvalidOperationException($"Invalid command: {command}");

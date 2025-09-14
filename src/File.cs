@@ -14,7 +14,7 @@ namespace codecrafters_sqlite.src
         internal readonly string path;
         internal ushort PageSize { get; private set; }
         internal ushort TableCount { get; private set; }
-        internal Table[] Tables { get; private set; }
+        internal TableSchema[] Tables { get; private set; }
 
         internal File(string path)
         {
@@ -30,7 +30,7 @@ namespace codecrafters_sqlite.src
 
             PageSize = Parse2Bytes(_MagicStringOffset);
             TableCount = Parse2Bytes(_fileHeaderOffset + 3);
-            Tables = new Table[TableCount];
+            Tables = new TableSchema[TableCount];
             int arrayStartOffset = _fileHeaderOffset + _pageHeaderOffset; // schema pointer array is always located on the first page, right after the page header
             int arrayRecordOffset = 0;
             for (int i = 0; i < TableCount; i++)
@@ -38,7 +38,7 @@ namespace codecrafters_sqlite.src
                 arrayRecordOffset = i * 2; // 2 bytes per record pointer
                 int tableSchemaPointer = this.Parse2Bytes(arrayStartOffset + arrayRecordOffset);
                 Record schemaRecord = new Record(this, tableSchemaPointer);
-                Tables[i] = new Table(this, schemaRecord);
+                Tables[i] = new TableSchema(this, schemaRecord);
             }
 
         }
